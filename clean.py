@@ -9,6 +9,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 log = logging.getLogger("clean")
+pd.set_option('display.max_columns', 10)
 
 
 def correct_lon_lat(df, ref_df):
@@ -44,7 +45,7 @@ def convert_categorical_to_numerical(df):
     log.info("Converting categorical data to numerical")
     lb_encoder = preprocessing.LabelEncoder()
     for f in df.columns:
-        if df[f].dtype == "object":
+        if df[f].dtype == "object" and f != 'timestamp':
             lb_encoder.fit(
                 list(df[f].values.astype("str")) + list(df[f].values.astype("str"))
             )
@@ -66,7 +67,7 @@ def handle_bad_data(df):
     df = df.drop(df[df["kitch_sq"] > df["full_sq"]].index)
 
     # Remove an outlier record with full_sq == 5326
-    df = df.drop(df_train[df_train["full_sq"] == 5326].index)
+    df = df.drop(df[df["full_sq"] == 5326].index)
 
     # Remove records where build year is less than 1691 and greater than 2018. Some entries include 0, 1, 3, 20, 71
     df = df.drop(df[df["build_year"] <= 1691].index)
@@ -81,6 +82,12 @@ def handle_bad_data(df):
     # Remove records where full_sq are 0 and 1 which are obvious errors
     df = df.drop(df[df["full_sq"] == 0].index)
     df = df.drop(df[df["full_sq"] == 1].index)
+
+    # Remove records with erroneous school-related data
+    df = df.drop(df[df["children_preschool"] < 0].index)
+    df = df.drop(df[df["preschool_quota"] < 0].index)
+    df = df.drop(df[df["children_school"] < 0].index)
+    df = df.drop(df[df["school_quota"] < 0].index)
 
     # State should be discrete valued between 1 and 4. There is a 33 in it that is clearly a data entry error.
     # Replace it with mode of state
@@ -97,8 +104,8 @@ def clean(df, ref_df):
     log.info("Cleaning pipeline started")
     df = correct_lon_lat(df, ref_df)
     df = truncate_extreme_values(df)
-    df = convert_categorical_to_numerical(df)
-    df = handle_bad_data(df)
+    # df = convert_categorical_to_numerical(df)
+    # df = handle_bad_data(df)
     df = impute_missing_values(df)
     return df
 
@@ -120,14 +127,13 @@ df_train_lat_lon = pd.read_csv(
 df_test_lat_lon = pd.read_csv(
     TRAIN_LAT_LON_PATH, usecols=["id", "lat", "lon"], index_col="id"
 ).sort_index()
-
-
-
+print(df_train)
 # Clean
 df_train_clean = clean(df_train, df_train_lat_lon)
 df_test_clean = clean(df_test, df_test_lat_lon)
-df_train_clean.to_csv(TRAIN_OUT_PATH)
-df_test_clean.to_csv(TEST_OUT_PATH)
+print(df_train_clean)
+df_train_clean.to_csv(TRAIN_OUT_PATH, index=False)
+df_test_clean.to_csv(TEST_OUT_PATH, index=False)
 
-
-print(df_train_clean['build_year'])
+df_train_clean = pd.read_csv(TRAIN_OUT_PATH)
+print(df_train_clean)
