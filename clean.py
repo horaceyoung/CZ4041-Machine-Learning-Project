@@ -22,20 +22,21 @@ def truncate_extreme_values(df):
     # Truncate extreme values above [1] percentile and below [2] percentile in [0] col
     cols = [("price_doc", 99.5, 0.5), ("full_sq", 99.5, 0.5), ("life_sq", 95, 5)]
     for col in cols:
-        col_values = df[col[0]].to_numpy()
-        upper_limit = np.percentile(
-            np.delete(col_values, np.where(col_values == -99)), col[1]
-        )
-        lower_limit = np.percentile(
-            np.delete(col_values, np.where(col_values == -99)), col[2]
-        )
-        df[col[0]].loc[df[col[0]] > upper_limit] = upper_limit
-        df[col[0]].loc[df[col[0]] < lower_limit] = lower_limit
-        log.info(
-            "Truncating extreme values for col {}, {} percentile = {}, {} percentile = {}".format(
-                col[0], col[1], upper_limit, col[2], lower_limit
+        if col in df.columns:
+            col_values = df[col[0]].to_numpy()
+            upper_limit = np.percentile(
+                np.delete(col_values, np.where(col_values == -99)), col[1]
             )
-        )
+            lower_limit = np.percentile(
+                np.delete(col_values, np.where(col_values == -99)), col[2]
+            )
+            df[col[0]].loc[df[col[0]] > upper_limit] = upper_limit
+            df[col[0]].loc[df[col[0]] < lower_limit] = lower_limit
+            log.info(
+                "Truncating extreme values for col {}, {} percentile = {}, {} percentile = {}".format(
+                    col[0], col[1], upper_limit, col[2], lower_limit
+                )
+            )
     return df
 
 
@@ -78,8 +79,8 @@ def handle_bad_data(df):
     df = df.drop(df[df["floor"] > df["max_floor"]].index)
 
     # Remove records where full_sq are 0 and 1 which are obvious errors
-    df = df.drop(df_train[df_train["full_sq"] == 0].index)
-    df = df.drop(df_train[df_train["full_sq"] == 1].index)
+    df = df.drop(df[df["full_sq"] == 0].index)
+    df = df.drop(df[df["full_sq"] == 1].index)
 
     # State should be discrete valued between 1 and 4. There is a 33 in it that is clearly a data entry error.
     # Replace it with mode of state
@@ -95,10 +96,10 @@ def handle_bad_data(df):
 def clean(df, ref_df):
     log.info("Cleaning pipeline started")
     df = correct_lon_lat(df, ref_df)
-    df = impute_missing_values(df)
     df = truncate_extreme_values(df)
     df = convert_categorical_to_numerical(df)
     df = handle_bad_data(df)
+    df = impute_missing_values(df)
     return df
 
 
@@ -120,8 +121,13 @@ df_test_lat_lon = pd.read_csv(
     TRAIN_LAT_LON_PATH, usecols=["id", "lat", "lon"], index_col="id"
 ).sort_index()
 
+
+
 # Clean
 df_train_clean = clean(df_train, df_train_lat_lon)
-df_test_clean = clean(df_train, df_test_lat_lon)
+df_test_clean = clean(df_test, df_test_lat_lon)
 df_train_clean.to_csv(TRAIN_OUT_PATH)
 df_test_clean.to_csv(TEST_OUT_PATH)
+
+
+print(df_train_clean['build_year'])
