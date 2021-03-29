@@ -2,14 +2,15 @@ import numpy as np
 import pandas as pd
 import logging
 import os
-from sklearn import model_selection, preprocessing
+from sklearn import preprocessing
+from sklearn.impute import KNNImputer
 from scipy import stats
 
 pd.options.mode.chained_assignment = None  # default='warn'
-
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.max_rows", 300)
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 log = logging.getLogger("clean")
-pd.set_option('display.max_columns', 10)
 
 
 def correct_lon_lat(df, ref_df):
@@ -45,7 +46,7 @@ def convert_categorical_to_numerical(df):
     log.info("Converting categorical data to numerical")
     lb_encoder = preprocessing.LabelEncoder()
     for f in df.columns:
-        if df[f].dtype == "object" and f != 'timestamp':
+        if df[f].dtype == "object" and f != "timestamp":
             lb_encoder.fit(
                 list(df[f].values.astype("str")) + list(df[f].values.astype("str"))
             )
@@ -54,9 +55,13 @@ def convert_categorical_to_numerical(df):
 
 
 def impute_missing_values(df):
-    log.info("Filling missing values with -99")
-    # Fill NAN with the unlikely -99. Remove this value from arrays when calculating
-    df.fillna(-99, inplace=True)
+    log.info("Filling missing values using KNNimputer")
+    # Fill NAN using sklearn's KNN imputer
+    df_cp = df.copy()
+    df = df.drop("timestamp", 1)
+    imputer = KNNImputer(n_neighbors=5)
+    df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+    df["timestamp"] = df_cp["timestamp"].values
     return df
 
 
@@ -104,8 +109,8 @@ def clean(df, ref_df):
     log.info("Cleaning pipeline started")
     df = correct_lon_lat(df, ref_df)
     df = truncate_extreme_values(df)
-    # df = convert_categorical_to_numerical(df)
-    # df = handle_bad_data(df)
+    df = convert_categorical_to_numerical(df)
+    df = handle_bad_data(df)
     df = impute_missing_values(df)
     return df
 
@@ -127,13 +132,9 @@ df_train_lat_lon = pd.read_csv(
 df_test_lat_lon = pd.read_csv(
     TRAIN_LAT_LON_PATH, usecols=["id", "lat", "lon"], index_col="id"
 ).sort_index()
-print(df_train)
+
 # Clean
 df_train_clean = clean(df_train, df_train_lat_lon)
 df_test_clean = clean(df_test, df_test_lat_lon)
-print(df_train_clean)
 df_train_clean.to_csv(TRAIN_OUT_PATH, index=False)
 df_test_clean.to_csv(TEST_OUT_PATH, index=False)
-
-df_train_clean = pd.read_csv(TRAIN_OUT_PATH)
-print(df_train_clean)
