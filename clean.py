@@ -105,12 +105,20 @@ def handle_bad_data(df):
     return df
 
 
-def clean(df, ref_df):
+def clean_data(df, ref_df):
     log.info("Cleaning pipeline started")
     df = correct_lon_lat(df, ref_df)
     df = truncate_extreme_values(df)
     df = convert_categorical_to_numerical(df)
     df = handle_bad_data(df)
+    df = impute_missing_values(df)
+    return df
+
+
+def clean_macro(df):
+    log.info("Cleaning pipeline started")
+    df = truncate_extreme_values(df)
+    df = convert_categorical_to_numerical(df)
     df = impute_missing_values(df)
     return df
 
@@ -123,6 +131,8 @@ TRAIN_LAT_LON_PATH = "input/train_lat_lon.csv"
 TEST_LAT_LON_PATH = "input/test_lat_lon.csv"
 TRAIN_OUT_PATH = "output/train.csv"
 TEST_OUT_PATH = "output/test.csv"
+JOIN_TRAIN_MACRO_PATH = "output/train_macro.csv"
+JOIN_TEST_MACRO_PATH = "output/test_macro.csv"
 
 df_train = pd.read_csv(TRAIN_PATH)
 df_test = pd.read_csv(TEST_PATH)
@@ -132,9 +142,15 @@ df_train_lat_lon = pd.read_csv(
 df_test_lat_lon = pd.read_csv(
     TRAIN_LAT_LON_PATH, usecols=["id", "lat", "lon"], index_col="id"
 ).sort_index()
+df_macro = pd.read_csv(MACRO_PATH, index_col='timestamp')
 
 # Clean
-df_train_clean = clean(df_train, df_train_lat_lon)
-df_test_clean = clean(df_test, df_test_lat_lon)
+df_train_clean = clean_data(df_train, df_train_lat_lon)
+df_test_clean = clean_data(df_test, df_test_lat_lon)
 df_train_clean.to_csv(TRAIN_OUT_PATH, index=False)
 df_test_clean.to_csv(TEST_OUT_PATH, index=False)
+df_macro_clean = clean_macro(df_macro)
+
+# Join
+df_train_clean.merge(df_macro_clean, how='left', on='timestamp').to_csv(JOIN_TRAIN_MACRO_PATH, index=False)
+df_test_clean.merge(df_macro_clean, how='left', on='timestamp').to_csv(JOIN_TEST_MACRO_PATH, index=False)
