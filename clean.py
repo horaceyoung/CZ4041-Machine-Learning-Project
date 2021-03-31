@@ -98,6 +98,9 @@ def handle_bad_data(df):
     df = df.drop(df[df["full_sq"] == 0].index)
     df = df.drop(df[df["full_sq"] == 1].index)
 
+    # Remove records where max_floor is 0
+    df = df.drop(df[df["max_floor"] == 0].index)
+
     # Remove records with erroneous school-related data
     df = df.drop(df[df["children_preschool"] < 0].index)
     df = df.drop(df[df["preschool_quota"] < 0].index)
@@ -127,7 +130,7 @@ def clean_data(df, ref_df):
 
 def clean_macro(df):
     log.info("Cleaning pipeline started")
-    df = truncate_extreme_values(df)
+    df = truncate_extreme_value(df)
     df = convert_categorical_to_numerical(df)
     df = impute_missing_values_macro(df)
     return df
