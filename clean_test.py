@@ -9,10 +9,10 @@ def impute_impossible_values(df):
     )
 
     # max_floor = 0 results in infinity
-    df.loc[df.max_floor <= 0, "max_floor"] = train_average["max_floor"]
     df.loc[df.max_floor <= 0, "ratio_floor_max_floor"] = (
         train_average["floor"] / train_average["max_floor"]
     )
+    df.loc[df.max_floor <= 0, "max_floor"] = train_average["max_floor"]
 
     # Negative floor from top
     df.loc[df.floor_from_top < 0, "floor_from_top"] = (
